@@ -6,7 +6,7 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../hooks/use-toast';
-import { BookOpen, Mail, Lock, User } from 'lucide-react';
+import { BookOpen, Mail, Lock, User, ArrowLeft } from 'lucide-react';
 
 export const Signup: React.FC = () => {
   const [name, setName] = useState('');
@@ -52,7 +52,17 @@ export const Signup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4 relative">
+      {/* Back to Home Button - Top Left */}
+      <div className="absolute top-4 left-4">
+        <Link to="/">
+          <Button variant="ghost" className="text-white hover:bg-white/10">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Button>
+        </Link>
+      </div>
+
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
