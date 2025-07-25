@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -17,6 +17,7 @@ export const Books: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [genreFilter, setGenreFilter] = useState('all');
   const [authorFilter, setAuthorFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -27,8 +28,24 @@ export const Books: React.FC = () => {
   const [availableAuthors, setAvailableAuthors] = useState<string[]>([]);
   const booksPerPage = 6;
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 1500); // Wait 1500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    if (debouncedSearchQuery !== searchQuery) {
+      setCurrentPage(1);
+    }
+  }, [debouncedSearchQuery]);
+
   // Fetch books from API
-  const fetchBooks = async () => {
+  const fetchBooks = useCallback(async () => {
     try {
       setIsLoading(true);
       setError('');
@@ -38,7 +55,7 @@ export const Books: React.FC = () => {
         limit: booksPerPage,
         ...(genreFilter !== 'all' && { genre: genreFilter }),
         ...(authorFilter !== 'all' && { author: authorFilter }),
-        ...(searchQuery && { search: searchQuery }),
+        ...(debouncedSearchQuery && { search: debouncedSearchQuery }),
         sortBy,
       };
 
@@ -54,15 +71,16 @@ export const Books: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentPage, genreFilter, authorFilter, sortBy, debouncedSearchQuery]);
 
   // Fetch books on component mount and when filters change
   useEffect(() => {
     fetchBooks();
-  }, [currentPage, genreFilter, authorFilter, sortBy, searchQuery]);
+  }, [fetchBooks]);
 
   const clearFilters = () => {
     setSearchQuery('');
+    setDebouncedSearchQuery('');
     setGenreFilter('all');
     setAuthorFilter('all');
     setSortBy('newest');
@@ -104,7 +122,7 @@ export const Books: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-4">
+          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-4 leading-tight py-1">
             Discover Amazing Books
           </h1>
           <p className="text-xl text-muted-foreground">
@@ -132,6 +150,11 @@ export const Books: React.FC = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10"
                   />
+                  {searchQuery !== debouncedSearchQuery && (
+                    <div className="absolute right-3 top-3">
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
                 </div>
               </div>
 
