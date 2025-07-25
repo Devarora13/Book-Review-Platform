@@ -1,6 +1,5 @@
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'https://book-review-platform-p7if.onrender.com'}/api`;
 
-console.log(import.meta.env.VITE_API_URL || 'URL not set');
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {

@@ -19,8 +19,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`)
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
