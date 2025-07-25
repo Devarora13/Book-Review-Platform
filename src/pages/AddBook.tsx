@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Navigation } from '../components/Navigation';
 import { useToast } from '../hooks/use-toast';
+import { booksApi } from '../lib/api';
 import { BookOpen, Plus } from 'lucide-react';
 import type { Genre } from '@/types';
 
@@ -35,19 +36,42 @@ export const AddBook: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!title.trim() || !author.trim() || !genre) {
+      toast({
+        title: "Please fill in all required fields",
+        description: "Title, author, and genre are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      await booksApi.createBook({
+        title: title.trim(),
+        author: author.trim(),
+        genre: genre as Genre,
+        description: description.trim(),
+      });
 
-    toast({
-      title: "Book added successfully!",
-      description: `"${title}" by ${author} has been added to the library.`,
-    });
+      toast({
+        title: "Book added successfully!",
+        description: `"${title}" by ${author} has been added to the library.`,
+      });
 
-    // Navigate back to books list
-    navigate('/books');
-    setIsLoading(false);
+      // Navigate back to books list
+      navigate('/books');
+    } catch (err) {
+      toast({
+        title: "Failed to add book",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

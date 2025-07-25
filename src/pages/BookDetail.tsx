@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -6,9 +6,11 @@ import { Badge } from '../components/ui/badge';
 import { Textarea } from '../components/ui/textarea';
 import { StarRating } from '../components/StarRating';
 import { Navigation } from '../components/Navigation';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../hooks/use-toast';
-import { mockBooks, mockReviews } from '../data/mockData';
+import { booksApi, reviewsApi } from '../lib/api';
+import type { Book, Review } from '../types';
 import { ArrowLeft, Calendar, MessageSquare, Star, Send } from 'lucide-react';
 
 export const BookDetail: React.FC = () => {
@@ -16,21 +18,82 @@ export const BookDetail: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
+  const [book, setBook] = useState<Book | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [reviewText, setReviewText] = useState('');
   const [rating, setRating] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const book = useMemo(() => 
-    mockBooks.find(b => b.id === id), [id]
-  );
+  // Check if user has already reviewed this book
+  const userHasReviewed = reviews.some(r => r.userId === user?.id);
 
-  const bookReviews = useMemo(() => 
-    mockReviews.filter(r => r.bookId === id), [id]
-  );
+  // Fetch book details
+  const fetchBook = async () => {
+    if (!id) return;
+    
+    try {
+      const bookData = await booksApi.getBook(id);
+      setBook(bookData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch book');
+    }
+  };
 
-  const userHasReviewed = useMemo(() => 
-    bookReviews.some(r => r.userId === user?.id), [bookReviews, user?.id]
-  );
+  // Fetch reviews for this book
+  const fetchReviews = async () => {
+    if (!id) return;
+    
+    try {
+      const reviewsData = await reviewsApi.getBookReviews(id);
+      setReviews(reviewsData);
+    } catch (err) {
+      console.error('Failed to fetch reviews:', err);
+      // Don't set error for reviews, just log it
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchBook(), fetchReviews()]);
+      setIsLoading(false);
+    };
+    
+    loadData();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8">
+          <LoadingSpinner />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8">
+          <Card className="text-center py-12">
+            <CardContent>
+              <h2 className="text-2xl font-bold mb-4">Error Loading Book</h2>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <Link to="/books">
+                <Button>Back to Books</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   if (!book) {
     return (
@@ -65,19 +128,43 @@ export const BookDetail: React.FC = () => {
       return;
     }
 
+    if (!user || !book) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to submit a review.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    toast({
-      title: "Review submitted!",
-      description: "Thank you for sharing your thoughts about this book.",
-    });
-    
-    setReviewText('');
-    setRating(0);
-    setIsSubmitting(false);
+    try {
+      await reviewsApi.createReview({
+        bookId: book.id,
+        reviewText: reviewText.trim(),
+        rating,
+      });
+      
+      toast({
+        title: "Review submitted!",
+        description: "Thank you for sharing your thoughts about this book.",
+      });
+      
+      setReviewText('');
+      setRating(0);
+      
+      // Refresh reviews
+      await fetchReviews();
+    } catch (err) {
+      toast({
+        title: "Failed to submit review",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -223,10 +310,10 @@ export const BookDetail: React.FC = () => {
         <div className="mt-8">
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>Reviews ({bookReviews.length})</CardTitle>
+              <CardTitle>Reviews ({reviews.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              {bookReviews.length === 0 ? (
+              {reviews.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
                   <p className="text-muted-foreground">
@@ -235,7 +322,7 @@ export const BookDetail: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {bookReviews.map((review) => (
+                  {reviews.map((review: Review) => (
                     <div key={review.id} className="border-b border-border last:border-b-0 pb-6 last:pb-0">
                       <div className="flex items-start justify-between mb-3">
                         <div>

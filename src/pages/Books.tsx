@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -7,53 +7,59 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { StarRating } from '../components/StarRating';
 import { Navigation } from '../components/Navigation';
-import { mockBooks } from '../data/mockData';
-import { Search, Filter, BookOpen, Calendar, TrendingUp } from 'lucide-react';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { booksApi } from '../lib/api';
+import type { Book } from '../types';
+import { Search, Filter, BookOpen, Calendar } from 'lucide-react';
 
 export const Books: React.FC = () => {
+  const [books, setBooks] = useState<Book[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [genreFilter, setGenreFilter] = useState('all');
   const [authorFilter, setAuthorFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalBooks, setTotalBooks] = useState(0);
+  const [availableGenres, setAvailableGenres] = useState<string[]>([]);
+  const [availableAuthors, setAvailableAuthors] = useState<string[]>([]);
   const booksPerPage = 6;
 
-  const genres = [...new Set(mockBooks.map(book => book.genre))];
-  const authors = [...new Set(mockBooks.map(book => book.author))];
-
-  const filteredAndSortedBooks = useMemo(() => {
-    let filtered = mockBooks.filter(book => {
-      const matchesSearch = book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           book.author.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesGenre = genreFilter === 'all' || book.genre === genreFilter;
-      const matchesAuthor = authorFilter === 'all' || book.author === authorFilter;
+  // Fetch books from API
+  const fetchBooks = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
       
-      return matchesSearch && matchesGenre && matchesAuthor;
-    });
+      const params = {
+        page: currentPage,
+        limit: booksPerPage,
+        ...(genreFilter !== 'all' && { genre: genreFilter }),
+        ...(authorFilter !== 'all' && { author: authorFilter }),
+        ...(searchQuery && { search: searchQuery }),
+        sortBy,
+      };
 
-    // Sort books
-    switch (sortBy) {
-      case 'newest':
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        break;
-      case 'oldest':
-        filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        break;
-      case 'rating':
-        filtered.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-        break;
-      case 'title':
-        filtered.sort((a, b) => a.title.localeCompare(b.title));
-        break;
+      const response = await booksApi.getBooks(params);
+      
+      setBooks(response.books);
+      setTotalPages(response.pagination.pages);
+      setTotalBooks(response.pagination.total);
+      setAvailableGenres(response.filters.genres);
+      setAvailableAuthors(response.filters.authors);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch books');
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    return filtered;
-  }, [searchQuery, genreFilter, authorFilter, sortBy]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedBooks.length / booksPerPage);
-  const startIndex = (currentPage - 1) * booksPerPage;
-  const currentBooks = filteredAndSortedBooks.slice(startIndex, startIndex + booksPerPage);
+  // Fetch books on component mount and when filters change
+  useEffect(() => {
+    fetchBooks();
+  }, [currentPage, genreFilter, authorFilter, sortBy, searchQuery]);
 
   const clearFilters = () => {
     setSearchQuery('');
@@ -62,6 +68,34 @@ export const Books: React.FC = () => {
     setSortBy('newest');
     setCurrentPage(1);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8">
+          <LoadingSpinner />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8">
+          <Card className="text-center py-12">
+            <CardContent>
+              <h2 className="text-2xl font-bold mb-4">Error Loading Books</h2>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <Button onClick={fetchBooks}>Try Again</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -74,7 +108,7 @@ export const Books: React.FC = () => {
             Discover Amazing Books
           </h1>
           <p className="text-xl text-muted-foreground">
-            Explore our collection of {mockBooks.length} books and read reviews from fellow readers
+            Explore our collection of {totalBooks} books and read reviews from fellow readers
           </p>
         </div>
 
@@ -109,7 +143,7 @@ export const Books: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Genres</SelectItem>
-                    {genres.map(genre => (
+                    {availableGenres.map((genre: string) => (
                       <SelectItem key={genre} value={genre}>{genre}</SelectItem>
                     ))}
                   </SelectContent>
@@ -124,7 +158,7 @@ export const Books: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Authors</SelectItem>
-                    {authors.map(author => (
+                    {availableAuthors.map((author: string) => (
                       <SelectItem key={author} value={author}>{author}</SelectItem>
                     ))}
                   </SelectContent>
@@ -149,7 +183,7 @@ export const Books: React.FC = () => {
 
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                Showing {currentBooks.length} of {filteredAndSortedBooks.length} books
+                Showing {books.length} of {totalBooks} books
               </div>
               <Button variant="outline" onClick={clearFilters}>
                 Clear Filters
@@ -159,7 +193,7 @@ export const Books: React.FC = () => {
         </Card>
 
         {/* Books Grid */}
-        {currentBooks.length === 0 ? (
+        {books.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
               <BookOpen className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
@@ -169,7 +203,7 @@ export const Books: React.FC = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {currentBooks.map((book) => (
+            {books.map((book: Book) => (
               <Link key={book.id} to={`/book/${book.id}`}>
                 <Card className="h-full shadow-card hover:shadow-elegant transition-all duration-300 hover:scale-105">
                   <CardHeader>
