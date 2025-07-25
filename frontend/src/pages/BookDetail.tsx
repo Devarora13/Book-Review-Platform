@@ -128,6 +128,24 @@ export const BookDetail: React.FC = () => {
       return;
     }
 
+    if (reviewText.trim().length < 10) {
+      toast({
+        title: "Review too short",
+        description: "Your review must be at least 10 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (reviewText.trim().length > 1000) {
+      toast({
+        title: "Review too long",
+        description: "Your review must be no more than 1000 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!user || !book) {
       toast({
         title: "Authentication required",
@@ -140,10 +158,17 @@ export const BookDetail: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      await reviewsApi.createReview({
+      console.log('Submitting review with data:', {
         bookId: book.id,
         reviewText: reviewText.trim(),
         rating,
+        urlId: id
+      });
+      
+      await reviewsApi.createReview({
+        bookId: id!, // Use the URL parameter directly, which should be the MongoDB ObjectId
+        reviewText: reviewText.trim(),
+        rating: Number(rating), // Ensure rating is sent as a number
       });
       
       toast({
@@ -157,9 +182,11 @@ export const BookDetail: React.FC = () => {
       // Refresh reviews
       await fetchReviews();
     } catch (err) {
+      console.error('Review submission error:', err);
+      const errorMessage = err instanceof Error ? err.message : "Please try again.";
       toast({
         title: "Failed to submit review",
-        description: err instanceof Error ? err.message : "Please try again.",
+        description: `Validation error: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -275,17 +302,20 @@ export const BookDetail: React.FC = () => {
                       </label>
                       <Textarea
                         id="review"
-                        placeholder="What did you think about this book? Share your thoughts..."
+                        placeholder="What did you think about this book? Share your thoughts... (minimum 10 characters)"
                         value={reviewText}
                         onChange={(e) => setReviewText(e.target.value)}
                         rows={4}
                       />
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {reviewText.trim().length}/1000 characters (minimum 10 required)
+                      </div>
                     </div>
 
                     <Button
                       type="submit"
                       className="w-full bg-gradient-primary shadow-elegant"
-                      disabled={isSubmitting || !rating || !reviewText.trim()}
+                      disabled={isSubmitting || !rating || !reviewText.trim() || reviewText.trim().length < 10}
                     >
                       {isSubmitting ? (
                         <>

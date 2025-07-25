@@ -6,6 +6,11 @@ import Book from '../models/Book.js';
 export const getBookReviews = async (req, res) => {
   try {
     const { bookId } = req.params;
+    
+    // Validate ObjectId format
+    if (!bookId || bookId === 'undefined' || bookId === 'null' || !bookId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: 'Invalid book ID format' });
+    }
 
     const reviews = await Review.find({ book: bookId })
       .populate('user', 'name email')
@@ -24,8 +29,14 @@ export const getBookReviews = async (req, res) => {
 // Create a new review (requires authentication)
 export const createReview = async (req, res) => {
   try {
+    console.log('Review creation request:', {
+      body: req.body,
+      user: req.user ? req.user._id : 'No user'
+    });
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ 
         message: 'Validation failed', 
         errors: errors.array() 
