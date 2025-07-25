@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Navigation } from '../components/Navigation';
 import { useToast } from '../hooks/use-toast';
 import { BookOpen, Plus } from 'lucide-react';
-import { Genre } from '@/types';
+import type { Genre } from '@/types';
 
 const genres: Genre[] = [
   'Fiction',

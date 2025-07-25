@@ -1,4 +1,4 @@
-import { Book, Review } from '@/types';
+import type { Book, Review } from '@/types';
 
 export const mockBooks: Book[] = [
   {
